@@ -1,0 +1,169 @@
+一 PWA简介
+1. 什么是PWA?
+PWA全称：Progressive Web App
+实际是一组新特性的集合，站点可逐步渐进式的转变升级为PWA。
+一个PWA网站只是汲取了所需要的原生应用功能的网站而已。
+依然是使用HTML+CSS+JS创建的，只是提升了用户体验。
+一个比较完善的PWA会有以下这几个特点：
+①安全：基于https
+②可链接可安装：依然可通过链接分享；摆脱浏览器入口提高用户黏性
+③独立于网络连接：可离线使用，接收离线消息（选择性的缓存网站资源）
+④跨平台：在不支持新特性的浏览器上也能作为普通web网站运行
+
+二 核心内容Service Worker
+1. Service Worker 的由来
+浏览器中的 javaScript 都是运行在一个单一主线程上的，在同一时间内只能做一件事情。随着 Web 业务不断复杂，我们逐渐在 js 中加了很多耗资源、耗时间的复杂运算过程，这些过程导致的性能问题在 WebApp 的复杂化过程中更加凸显出来。
+
+W3C 组织早早的洞察到了这些问题可能会造成的影响，这个时候有个叫 Web Worker 的 API 被造出来了，这个 API 的唯一目的就是解放主线程，Web Worker 是脱离在主线程之外的，将一些复杂的耗时的活交给它干，完成后通过 postMessage 方法告诉主线程，而主线程通过 onMessage 方法得到 Web Worker 的结果反馈。
+
+一切问题好像是解决了，但 Web Worker 是临时的，每次做的事情的结果还不能被持久存下来，如果下次有同样的复杂操作，还得费时间的重新来一遍。那我们能不能有一个Worker 是一直持久存在的，并且随时准备接受主线程的命令呢？基于这样的需求推出了最初版本的 Service Worker ，Service Worker 在 Web Worker 的基础上加上了持久离线缓存能力。当然在 Service Worker 之前也有在 HTML5 上做离线缓存的 API 叫 AppCache, 但是 AppCache 存在很多 不能忍受的缺点，将在 HTML 后续版本中移除。
+
+所以说，实际上Service Worker就是一种web worker，更具体说是web worker中Shared Worker的一种，目的就是解放主线程，实现持久离线缓存。
+2. Service Worker 与Web Worker
+Web Worker
+HTML5 Rocks有一篇对Web Workers非常好的介绍。从那篇文章中，我发现最好的一行定义是：
+
+Web Workers利用线程消息传递来实现并行性
+
+Web Workers对于任何具有强大功能的Web app来说都是非常完美的。它们让你把复杂的功能推到后台线程中，这样你的主JS就可以继续工作，比如设置事件监听器和其他UI交互。然后，当复杂的功能完成时，他们会报告他们的结果，让JS更新Web app。
+
+例如，在一系列动态图表中获取和显示数据的站点可以让每个图表通过一个独立的Web Worker获取自己的数据。而Web Worker是获取、处理、计算和数据，main JS可以设置菜单，事件监听器，初始化日期选择器和自定义的UI元素，等当每个Web Worker完成它的线程，它将携带可以用来创建它负责的图表的数据返回到main JS。
+
+当Web Worker不能直接与DOM交互时，您的mian js代码可以基于从Web Worker那里收到的消息来实现该功能。由于它们是完全独立的线程，Web Worker的代码必须存在于一个单独的文件中，并且不能访问您的mian js。Web Worker也可以产生子进程，创造额外的后台线程。
+Service Worker
+HTML5 Rocks有一个对Service Workers很棒的介绍(可惜被墙了)，从那篇文章中，我发现最好的一行定义是：
+
+Service worker是一个可编程的网络代理，允许您控制页面中的网络请求是如何处理的。
+
+Service worker非常适合创建一个优秀的离线web app。当你可以的时候，它们让你与服务器交互(从服务器获取新数据，或者将更新的信息推回到服务器)，这样你的应用程序就可以工作，而不管你的用户的连接情况如何。
+
+例如，一个电子邮件客户端当应用程序加载时可以读取邮件，然后，如果用户短暂地丢失了连接，应用程序仍然可以继续查看、删除已读或未读的文件、储存新的邮件，等到连接恢复时再把这些更新通过Service Worker发送到服务器。对用户来说，他们一直处于离线状态，但应用程序还在继续工作，所以看起来用户“完成了工作”，而应用程序只是通过收集更改并尽快更新到服务器上来完成它的工作。
+
+虽然Service Worker不能直接与DOM交互，但您的js代码可以基于从Service Worker那里收到的消息来实现该功能。Service Worker在没有使用时也会停止，并在需要时重新启动，因此没有持久的“状态”;您需要依赖某种本地存储来保持这种持久性。重要的是要记住Service Worker的生命周期与你的网页是完全分开的。
+
+	Dedicated Worker专用	Shared Worker共享	Service Worker
+用途	在属于创建者的worker线程中执行任务	在同一主域跨browser环境下(window,iframe..)的worker线程执行任务	缓存、推送、离线模式等
+执行上下文	DedicatedWorkerGlobalScope	SharedWorkerGlobalScope	ServiceWorkerGlobalScope
+与主线程通讯	Worker.postMessage()	Worker.port.postMessage()	特殊生命周期+事件驱动
+访问限制	DOM API	DOM API	DOM API & 同步API(localStorage, XHR…)
+
+关于前端缓存也有一些相关的知识，这里就不继续展开讲了，有兴趣可以参考这篇文章：
+https://juejin.im/entry/5baef5cef265da0ad13b8c01?utm_source=gold_browser_extension
+
+2. Service Worker的生命周期
+注册，安装，激活，更新
+ 
+ 
+
+SW 的 waiting 状态
+注册 SW 是通过 navigator.serviceWorker.register(swUrl, options) 方法进行的。但和普通的 JS 代码不同，这句执行在浏览器看来其实有两种不同的情况：
+
+如果目前尚未有活跃的 SW ，那就直接安装并激活。
+如果已有 SW 安装着，向新的 swUrl 发起请求，获取内容和和已有的 SW 比较。如没有差别，则结束安装。如有差别，则安装新版本的 SW（执行 install 阶段），之后令其等待（进入 waiting 阶段）
+此时当前页面会有两个 SW，但状态不同
+
+如果老的 SW 控制的所有页面 全部关闭，则老的 SW 结束运行，转而激活新的 SW（执行 activated 阶段），使之接管页面。
+
+这是一种比较温和和安全的做法，相当于新旧版本的自然淘汰。但毕竟关闭所有页面是用户的选择而不是程序员能控制的。另外我们还需注意一点：由于浏览器的内部实现原理，当页面切换或者自身刷新时，浏览器是等到新的页面完成渲染之后再销毁旧的页面。这表示新旧两个页面中间有共同存在的交叉时间，因此简单的切换页面或者刷新是不能使得 SW 进行更新的，老的 SW 依然接管页面，新的 SW 依然在等待。
+
+所以当我们希望新的sw尽快接管页面的时候，就需要skipwaiting方法直接激活sw，但其实这种方式也是存在一定隐患的，这里也不在展开讲了，有兴趣的话可以参考这篇文章：
+https://juejin.im/post/5c81cc985188257df17f109c?utm_source=gold_browser_extension
+
+3. Service Worker 所支持的事件
+ 
+
+4. Service Worker 的性质
+1. 与 Web Worker 一样，因为运行在独立的线程中，Service Worker 无法直接进行任何 DOM 操作
+2. Service Worker 运行在独立的全局上下文环境（ServiceWorkerGlobalScope）中
+你可以通过 self 关键字在 Service Worker 代码的任意位置来指向这个全局环境，有点类似 node.js 中的 global 关键字。
+当然，这不意味着你只能在 Service Worker 中使用 self，this 依然可以被使用，只是考虑到各种作用域的变更（如箭头函数、bind 等），self 能够在任何位置、任何环境下永远指向这个全局作用域。
+3. Service Worker 仅能运行在 HTTPS 环境下
+主要是考虑到网络请求拦截等能力的危险程度，但为了调试方便可以在 HTTP 环境的 localhost 中进行调试。
+4. Service Worker 的注册必选遵守「同源策略（Same Origin Policy）」并在同源页面下是共享的
+这也是很多人疑惑为什么注册一个 CDN 上的 Service Worker 会报错的问题所在，比如页面是 https://www.exmaple.com，注册一个 https://cdn.example.com/service-worker.js，就会导致跨域错误。这一点也能从 「Service Worker 是 Shared Worker 的一种」推导出
+5. Service Worker 有固定的作用范围，可以在注册时通过 scope 参数指定，若留空则自动根据 Service Worker 的 location 来判断，且一个域下可以注册若干个 Service Worker，只要他们的 scope 不同即可
+举个例子，若没有特别设置 scope， https://www.example.com/sw.js 的作用域就是 /，因此这个 Service Worker 可以拦截该域下页面的任意请求；但是 https://www.example.com/folder/sw.js 的作用域只能是 /folder/，若访问的页面是 https://www.example.com/another-folder/index.html，这个 Service Worker 不会拦截到任何的请求。
+因此一般来说，Service Worker 应该注册在根目录下，根据应用的需要指定 scope 即可。
+6. Service Worker 是事件驱动的
+当事件触发时会执行 Service Worker 里注册的事件回调函数，当事件处理完成后这个 Service Worker 对应的线程可能会被销毁。因此你无法在 Service Worker 中定义全局变量，如果需要持久化一些内容在不同的事件触发时进行传递，可以考虑使用IndexedDB。
+7. Service Worker 一旦注册成功，便不依托于某个具体的页面存在
+举个例子，你在 https://www.example.com/index.html 使用 register('service-worker.js') 成功注册了一个 Service Worker。关闭浏览器后重新访问 https://www.example.com/index.html，移除掉 register('service-worker.js') 的调用，之前注册的Service Worker 依然会正常运行。
+5. Service Worker缓存策略
+1.Cache Only
+这个策略也比较直接，直接使用 Cache 缓存的结果，并将结果返回给客户端，这种策略比较适合一上线就不会变的静态资源请求。
+2.Network Only
+比较直接的策略，直接强制使用正常的网络请求，并将结果返回给客户端，这种策略比较适合对实时性要求非常高的请求。
+3.Cache First
+这个策略的意思就是当匹配到请求之后直接从 Cache 缓存中取得结果，如果 Cache 缓存中没有结果，那就会发起网络请求，拿到网络请求结果并将结果更新至 Cache 缓存，并将结果返回给客户端。这种策略比较适合结果不怎么变动且对实时性要求不高的请求。
+4.Network First
+这种策略就是当请求路由是被匹配的，就采用网络优先的策略，也就是优先尝试拿到网络请求的返回结果，如果拿到网络请求的结果，就将结果返回给客户端并且写入 Cache 缓存，如果网络请求失败，那最后被缓存的 Cache 缓存结果就会被返回到客户端，这种策略一般适用于返回结果不太固定或对实时性有要求的请求，为网络请求失败进行兜底。
+5.Stale While Revalidate
+这种策略的意思是当请求的路由有对应的 Cache 缓存结果就直接返回，在返回 Cache 缓存结果的同时会在后台发起网络请求拿到请求结果并更新 Cache 缓存，如果本来就没有 Cache 缓存的话，直接就发起网络请求并返回结果，这对用户来说是一种非常安全的策略，能保证用户最快速的拿到请求的结果，但是也有一定的缺点，就是还是会有网络请求占用了用户的网络带宽。
+
+对于不同的资源可以采取不同的缓存策略
+
+*这部分需要进行简单的效果演示，先掌握一下谷歌的开发者工具：
+https://lavas.baidu.com/pwa/offline-and-cache-loading/service-worker/service-worker-debug
+三 PWA后台同步与消息推送
+1. 后台同步
+ 
+
+•首先，你需要在Service Worker中监听sync事件；
+•然后，在浏览器中发起后台同步sync（图中第一步）；
+•之后，会触发Service Worker的sync事件，在该监听的回调中进行操作，例如向后端发起请求（图中第二步）
+•最后，可以在Service Worker中对服务端返回的数据进行处理。
+
+即使在关闭网站后再重新连接网络，服务端依然可以收到来自客户端的请求（说明Service Worker在后台进行了相关处理）。
+
+后台同步中的一个重要问题：如何在后台同步时获取并发送client中的数据？
+实现的方式有两种：使用postMessage或使用indexedDB。
+
+相比于postMessage，使用indexedDB的方案要更复杂一点。它比较适用于一些需要数据持久化的场景。
+
+思路：client先将数据存在某处，待Servcie Worker需要时再读取使用即可。
+为此需要找一个存数据的地方。你第一个想到的可能就是localStorage了。
+然而，不知道你是否还记得我在最开始介绍Service Worker时所提到的，为了保证性能，实现部分操作的非阻塞，在Service Worker中我们经常会碰到异步操作（因此大多数API都是Promise形式的）。那么像localStorage这样的同步API会变成异步化么？答案很简单：不会，并且localStorage在Servcie Worker中无法调用。
+
+关于postMessage实现后台同步有兴趣的话参考这篇文章：
+https://www.jianshu.com/p/10d3e99742ca
+
+2. 消息推送
+实际上，消息推送与提醒是两个功能——Push API 和 Notification API。这是两个独立的技术，完全可以分开使用；不过Push API 和 Notification API相结合是一个常见的模式。
+这里的Web Push与常规概念中服务端直接与浏览器进行交互，使用长连接、WebSocket或是其他技术手段来向客户端推送消息不同。它其实是一个三方交互的过程。
+在Push中登场的三个重要“角色”分别是：
+浏览器：就是我们的客户端
+
+Push Service：专门的Push服务，你可以认为是一个第三方服务，目前chrome与firefox都有自己的Push Service Service。理论上只要浏览器支持，可以使用任意的Push Service
+
+后端服务：这里就是指我们自己的后端服务
+
+下面就介绍一下这三者在Web Push中是如何交互。
+Web Push的各个步骤，我们可以将其分为订阅（subscribe）与推送（push）两部分
+
+subscribe，首先是订阅：
+Ask Permission：这一步不再上图的流程中，这其实是浏览器中的策略。浏览器会询问用户是否允许通知，只有在用户允许后，才能进行后面的操作。
+
+Subscribe：浏览器（客户端）需要向Push Service发起订阅（subscribe），订阅后会得到一个PushSubscription对象
+
+Monitor：订阅操作会和Push Service进行通信，生成相应的订阅信息，Push Service会维护相应信息，并基于此保持与客户端的联系；
+
+Distribute Push Resource：浏览器订阅完成后，会获取订阅的相关信息（存在于PushSubscription对象中），我们需要将这些信息发送到自己的服务端，在服务端进行保存。
+
+Push Message，然后是推送：
+Push Message阶段一：我们的服务端需要推送消息时，不直接和客户端交互，而是通过Web Push协议，将相关信息通知Push Service；
+
+Push Message阶段二：Push Service收到消息，通过校验后，基于其维护的客户端信息，将消息推送给订阅了的客户端；
+
+最后，客户端收到消息，完成整个推送过程。
+
+目前，不同的浏览器厂商使用了不同的Push Service。例如，chrome使用了google自家的FCM（前身为GCM），firefox也是使用自家的服务。
+由于Chrome所依赖的Push Service——FCM在国内不可访问，所以要正常运行demo中的代码需要“梯子”，或者可以选择Firefox来进行测试。
+
+ 
+
+Notification API不进行更加细致的讲解了，有兴趣可以参考这篇文章：
+https://www.jianshu.com/p/f9480c35e32d
+
+注意：即使用户切换到其他Tab，甚至离开当前网站，仍然可以收到系统的提醒消息，并且可以通过消息提醒快速打开你的网站。
+
+
